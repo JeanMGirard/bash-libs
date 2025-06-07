@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+
+SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd );  SOURCE=$(readlink "$SOURCE");
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE 
+done
+DIR=$( dirname $( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd ) )
+
+
+
+SNIPPET_PROVIDER=;
+SNIPPET_ID=;
+SNIPPET_NAME=;
+SNIPPET_FILE=;
+SNIPPET_FILES="";
+SNIPPET_REF=;
+
+
+CMD="$1";
+SILENT=0;
+VERBOSE=0;
+INTERACTIVE=1;
+
+
+function snippets-verbose(){
+    if [[ $VERBOSE -eq 0 ]]; then return; fi
+    echo "PROVIDER  : $SNIPPET_PROVIDER"
+    echo "REF       : $SNIPPET_REF"
+    echo "ID        : $SNIPPET_ID"
+    echo "NAME      : $SNIPPET_NAME"
+    echo "FILE      : $SNIPPET_FILE"
+}
+function snippets-params(){
+    while [[ $# -gt 0 ]]; do case "$1" in
+        --param-value) PARAM="$2"; shift; ;;
+        -v) VERBOSE=1; ;;
+        -s) SILENT=1; ;;
+        --silent) SILENT=1; ;;
+        --no-prompt) INTERACTIVE=0; ;;
+        *) 
+            if   [[ -z "$SNIPPET_NAME" ]];  then SNIPPET_NAME="$1"; 
+            elif [[ -z "$SNIPPET_FILE" ]];  then SNIPPET_FILE="$1"; 
+            else echo "invalid argument '$1'";
+            fi;
+     esac; shift; done;
+
+    if [[ ! -z "$SNIPPET_NAME" ]]; then 
+        snippets-config "$SNIPPET_NAME" --silent; 
+    fi
+    snippets-verbose
+}
+
+function snippets-list(){
+    echo "$(cat "$DIR/snippets.json" | jq .)" | jq .
+}
+
+function snippets-config(){
+    FN_SILENT=${SILENT:-0};
+    NAME="$SNIPPET_NAME";
+    SNIPPET_REF=;  
+    RES="";
+
+    while [[ $# -gt 0 ]]; do case "$1" in
+        --silent) FN_SILENT=1; ;;
+        -s) FN_SILENT=1; ;;
+        *)  if   [[ -z "$NAME" ]]; then NAME="$1"; 
+            fi;
+    esac; shift; done;
+
+    if [[ -z "$NAME" ]]; then 
+        RES="$(cat "$DIR/snippets.json" | jq '.')"
+    else 
+        RES="$(cat "$DIR/snippets.json" | jq -r ".\"$NAME\"")"
+        SNIPPET_REF="$(echo "$RES" | jq -r .ref)"
+        if [[ ! -z "$SNIPPET_REF" ]]; then
+            SNIPPET_PROVIDER="$(echo "$SNIPPET_REF" | sed 's/:.*$//')"; 
+            SNIPPET_ID="$(echo $SNIPPET_REF | sed 's/^.*://')";
+        fi
+    fi
+    if [[ $FN_SILENT -eq 0 ]]; then echo "$RES" | jq -r '.' ; fi;
+}
+function snippets-get(){
+    # if [[ -z "$SNIPPET_FILE" ]]; then 
+    #    load-gitlab-snippet $SNIPPET_ID --no-prompt
+
+    if [[ "$SNIPPET_PROVIDER" == "gitlab" ]]; then 
+        load-gitlab-snippet $SNIPPET_ID --no-prompt $SNIPPET_FILE
+    fi
+}
+function snippets-load(){
+
+    if [[ -f "$DIR/$SNIPPET_NAME/$SNIPPET_FILE" ]]; then
+        echo "loading file found locally: $DIR/$SNIPPET_NAME/$SNIPPET_FILE"
+        . "$DIR/$SNIPPET_NAME/$SNIPPET_FILE"
+    elif [[ "$SNIPPET_PROVIDER" == "gitlab" ]]; then 
+        load-gitlab-snippet "$SNIPPET_ID" "$SNIPPET_FILE" --eval --silent
+        # SRC="$(get-gitlab-snippet "$SNIPPET_ID" "$SNIPPET_FILE")"; 
+    fi
+
+    # f [[ ! -z "$SRC" ]]; then eval "$SRC"; fi
+}
+function get-gitlab-snippet(){
+    ID="";FILE="";RES=""; 
+    EVAL=0; 
+    INTERACTIVE=${INTERACTIVE:-1}; 
+    SILENT=${SILENT:-0};
+
+    while [[ $# -gt 0 ]]; do case "$1" in
+        --eval) EVAL=1; ;;
+        --silent) SILENT=1; ;;
+        --no-prompt) INTERACTIVE=0; ;;
+        -s) SILENT=1; ;;
+        -i) INTERACTIVE=1; ;;
+        *)  if   [[ -z "$ID" ]];    then ID="$1"; 
+            elif [[ -z "$FILE" ]];  then FILE="$1"; 
+            fi;
+    esac; shift; done;
+
+
+    if [[ -z "$FILE" ]] && [[ $INTERACTIVE -gt 0 ]]; then
+        echo "$(curl -Ls https://gitlab.com/api/v4/snippets/$ID --header "Private-Token: $GITLAB_TOKEN")" | jq -r '.files[].path';
+        echo "Which file ? "; read FILE;
+    fi
+
+    if [[ -z "$FILE" ]]; then RES="$(curl -Ls "https://gitlab.com/api/v4/snippets/$ID" --header "Private-Token: $GITLAB_TOKEN" | jq .)";
+    else RES="$(curl -Ls "https://gitlab.com/api/v4/snippets/$ID/files/main/$FILE/raw" --header "Private-Token: $GITLAB_TOKEN")";
+    fi
+    
+	if [[ -z "$RES" ]]; then return; fi
+    if [[ $EVAL -gt 0 ]];   then eval "$RES"; fi;
+    if [[ $SILENT -eq 0 ]]; then echo "$RES"; fi;
+}
+function load-gitlab-snippet(){
+	get-gitlab-snippet $@ 
+}
+function snippets-update(){
+    . $DIR/update.sh $@
+}
+function snippets-help(){
+    cat << EOF
+
+    help    
+    list    
+    config  [name]
+    load    <name> [file]
+    get     <name> [file]
+
+    -s, --silent
+
+EOF
+}
+
+if [[ -z "$1" ]]; then CMD="snippets-help"; 
+else CMD="snippets-$1"; shift;
+fi
+
+snippets-params $@;
+
+
+# echo "$CMD $@ "
+# echo $SNIPPET $SNIPPET_FILE
+# echo "$DIR/snippets.json" 
+# cat "$DIR/snippets.json" | jq ".\"$SNIPPET\""
+$CMD $@
+
+
+

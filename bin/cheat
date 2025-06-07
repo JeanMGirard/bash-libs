@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+curl -s "https://cheat.sh/$1" | less -R
+

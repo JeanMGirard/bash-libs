@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# @file start.sh
+# @brief Ensures Task is installed and up-to-date and then runs `task start`
+# @description
+#   This script will ensure [Task](https://github.com/go-task/task) is up-to-date
+#   and then run the `start` task which is generally a good entrypoint for any repository
+#   that is using the Megabyte Labs templating/taskfile system. The `start` task will
+#   ensure that the latest upstream changes are retrieved, that the project is
+#   properly generated with them, and that all the development dependencies are installed.
+
+set -eox pipefail
+
+pushd "$(dirname $1)" &> /dev/null;
+source "./scripts/common.sh"
+
+
+# @description Attempts to pull the latest changes if the folder is a git repository
+if [ -d .git ] && type git &> /dev/null; then
+  HTTPS_VERSION="$(git remote get-url origin | sed 's/git@gitlab.com:/https:\/\/gitlab.com\//')"
+  git pull "$HTTPS_VERSION" master --ff-only
+  ROOT_DIR="$PWD"
+  if ls .modules/*/ > /dev/null 2>&1; then
+    for SUBMODULE_PATH in .modules/*/; do
+      cd "$SUBMODULE_PATH"
+      DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+      git reset --hard HEAD
+      git checkout "$DEFAULT_BRANCH"
+      git pull origin "$DEFAULT_BRANCH" --ff-only || true
+    done
+    cd "$ROOT_DIR"
+    # shellcheck disable=SC2016
+    logger success 'Ensured submodules in the `.modules` folder are pointing to the master branch'
+  fi
+fi

@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2068
+# shellcheck disable=SC2236
+
+# @name runner.sh
+# @brief
+# @description A long description of the library.
+# Second line of the project description.
+
+
+
+
+
+clear
+
+export ROOT="$( dirname -- "${BASH_SOURCE[0]}" )"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+source "$ROOT/scripts/hooks.sh" --on-script-start
+source "$ROOT/scripts/install.sh"
+
+
+BUILD=""
+EXECUTOR="docker"
+HELM=0
+LOAD_TEST=0
+STRESS_TEST=0
+
+
+
+# @description Ensures base dependencies are installed
+#
+# @example
+#   ensure::requirements
+#
+# @exitcode 0 The package(s) were successfully installed
+# @exitcode 1+ If there was an error, the package needs to be installed manually, or if the OS is unsupported
+ensure::requirements() {
+	 if ! type brew &> /dev/null; then
+        if type sudo &> /dev/null && sudo -n true; then
+          echo | /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          sudo apt-get install -y build-essential
+        else
+          logger warn "Homebrew is not installed. The script will attempt to install Homebrew and you might be prompted for your password."
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+        echo '# Set PATH, MANPATH, etc., for Homebrew.' >> $HOME/.profile
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $HOME/.profile
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+        brew install gcc
+    fi
+}
+
+
+# @description help function
+runner::help() {
+	cat "$ROOT/README.md"
+	exit 0
+}
+
+# @description start
+runner::start() {
+	local CMD="" CMD_ARGS=""
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		--docker|--k8s|--minikube|--kind|--ci|--local) EXECUTOR="${1//--/}" ;;
+		--help) runner::help $@ ;;
+		--helm) HELM=1 ;;
+		--build) BUILD=1 ;;
+		--load-test) LOAD_TEST=1 ;;
+		--stress-test) STRESS_TEST=1 ;;
+		--)
+			shift
+			break
+			;;
+		*)
+			if [[ -z "$CMD" ]]; then
+				CMD="$1"
+			elif [[ $CMD != "$1" ]]; then
+				CMD_ARGS="$CMD_ARGS $1"
+			fi
+			;;
+		esac
+		shift
+	done
+
+	CMD_ARGS="$CMD_ARGS $@"
+
+	echo -e "\n Using the $EXECUTOR executor.\n"
+
+
+	case "$EXECUTOR" in
+	docker|kind|minikube|local|k8s)
+		runner::emit $EXECUTOR $CMD $CMD_ARGS
+		;;
+	helm)
+		HELM=1
+		runner::emit k8s ${CMD:-start} $CMD_ARGS
+		;;
+	*) runner::emit $EXECUTOR $CMD $CMD_ARGS ;;
+	esac
+}
+
+# @description emit to sub runner
+runner::emit() {
+	NAME="$1"
+	shift
+	source "$ROOT/scripts/runners/$NAME.sh" $@
+}
+
+
+runner::start $@
+
+
+
+source "$ROOT/scripts/hooks.sh" --on-script-end

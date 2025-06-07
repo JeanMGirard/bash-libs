@@ -1,0 +1,39 @@
+#! /usr/bin/env bash
+
+
+[[ "$@" != *"--no-clear"* ]] && clear;
+[[ "$@" == *"--pkg"* ]] && cat <<-EOF
+=== Packages =================================================
+hub  ssh-askpass graphviz dos2unix  net-tools  go  dep  gomplate  nvm  node  tfenv  tgenv  terraform  terragrunt
+tfsec  terrafile  terraform-docs  tflint  peco  fzf  jsonnet  ytt  trunk  shfmt  pre-commit  hygen  task  codemod
+cheat  notes  pet  snipkit  aws  aws-vault  kubectl  helm  minikube  eksctl  kubebox  helmfile  ansible  sops
+gitlab-ci-local  atmos  operator-sdk  git-extras  git-cliff  git-secret  ergo  termchat wtfutil
+navi dnote
+==============================================================
+EOF
+
+cat << EOF
+=== Cheatsheet ==============================================
+find   > find /path/to/files -type f -exec sed -i 's/oldstring/new string/g' {} \;
+awk    > echo "foo" | awk '{print $1}'
+grep   > grep [-i|--ignore-case] "^EXP" "STRING"
+    	 [pipe]  cat LICENSE | grep "^(copy)?right" | sort | uniq
+    	 [stdin] grep "^(copy)?right" < <(cat LICENSE)
+sed    > ... | sed 's/^/$prepend/' | sed 's/\$/$append/' | sed 's/bef__aft/bef_$insert_aft/'
+cut    > ... | cut -d ' ')
+		 [select] ... | cut -d ' ' -f1 	# replace f1 with f[index]
+
+# Extra tools
+tgenv        tfenv     cheat        peco       pet          task
+snipkit      notes     fzf          nvm        codemod
+goreleaser   dep       termchat     kubebox    ergo
+
+git-extra-commands
+=====================================================
+EOF
+
+
+echo ""
+#!/bin/sh
+
+clear
