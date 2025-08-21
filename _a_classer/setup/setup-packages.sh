@@ -13,7 +13,7 @@ TF_DOCS_VERSION='0.16.0'
 
 
 ID="JeanMGirard/270b6424115703723e1af3a727c010a3";
-REV="4ed1fa4386c311951cab03a17a38054476cf75f3";
+REV="d3f59ce7d0d8ed2693c27a2241b14caa5f6e4115";
 NAME="setup.sh";
 eval "$(curl -s -o- https://gist.githubusercontent.com/$ID/raw/$REV/$NAME)";
 
