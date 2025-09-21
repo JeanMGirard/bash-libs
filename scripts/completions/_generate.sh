@@ -5,22 +5,10 @@ COMPLETIONS_IMPORT=${COMPLETIONS_IMPORT:-$HOME/_completions.sh}
 GEN_COMPLETIONS=(
 	"kubectl" 
 	"helm" 
-	"git"
 	"vals" 
 	"sops" 
-	"op" 
-	"gh" 
-	"gcloud" 
-	"aws" 
-	"az"
 	"istioctl"
 	"flux"
-	"argocd"
-	"doctl"
-	"terraform"
-	"terragrunt"
-	"yq"
-	"jq"
 )
 
 # === Create completions directory structure
@@ -63,8 +51,8 @@ EOF
 
 
 for cmd in "${GEN_COMPLETIONS[@]}"; do
-	if [ ! "$(command -v command)" ]; then
-		echo "command \"command\" dont exists on system"
+	if [ ! "$(command -v ${cmd})" ]; then
+		echo "command \"${cmd}\" dont exists on system"
 		continue
 	fi
 	(
