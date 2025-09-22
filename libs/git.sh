@@ -20,3 +20,8 @@ git::env(){
     GIT_PROJECT="$(echo $GIT_PATH | sed -E 's/^(\w|\.)+\///')"
 EOF
 }
+
+# TODO: Invoke-ForEachRepo
+git::foreach(){
+
+}
